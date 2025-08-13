@@ -763,6 +763,7 @@ window.openAtaEditor = async function openAtaEditor(ataId = null) {
     renderAtaEditor();
     
     document.querySelector('#app-container header').style.display = 'none'; 
+    closeModal('ata-list-modal');
     openModal('ata-editor-modal');
 }
 
