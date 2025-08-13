@@ -109,24 +109,36 @@ function setupAuthenticationListener() {
     onAuthStateChanged(auth, async (user) => {
         const loadingOverlay = document.getElementById('loading-overlay');
         if (user) {
-            const userDocRef = doc(db, "republicas", republicaId, "moradores", user.uid);
-            const userDocSnap = await getDoc(userDocRef);
+            // 1. Criar uma consulta para procurar o e-mail do utilizador
+            const moradoresRef = collection(db, "republicas", republicaId, "moradores");
+            const q = query(moradoresRef, where("email", "==", user.email));
+            
+            // 2. Executar a consulta
+            const querySnapshot = await getDocs(q);
 
-            if (userDocSnap.exists()) {
+            // 3. Verificar se encontrou algum resultado
+            if (!querySnapshot.empty) {
+                // Encontrado! Pegar o primeiro resultado
+                const userDocSnap = querySnapshot.docs[0];
                 currentUser = { id: userDocSnap.id, ...userDocSnap.data() };
+                
+                // Atualizar a interface com os dados do utilizador
                 document.getElementById('user-name').textContent = user.displayName.split(' ')[0];
                 document.getElementById('user-photo').src = user.photoURL;
                 document.getElementById('user-info').classList.remove('hidden');
 
+                // Mostrar a aplicação e carregar os dados
                 showApp();
                 if (Object.keys(taskUnsubscribes).length === 0) {
                     setupListeners();
                 }
                 updateUIVisibility();
             } else {
+                // Não encontrou nenhum morador com este e-mail
                 showAccessDenied();
             }
         } else {
+            // Utilizador não está logado
             showLogin();
         }
         loadingOverlay.classList.add('hidden');
@@ -469,7 +481,7 @@ window.closeModal = function closeModal(modalId) {
     if (modalId === 'ata-editor-modal') {
         document.querySelector('#app-container header').style.display = 'flex';
     }
-    
+
     const modal = document.getElementById(modalId);
     const content = document.getElementById(`${modalId}-content`);
     modal.classList.add('opacity-0');
