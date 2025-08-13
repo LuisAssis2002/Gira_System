@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>República Giramundo - Controle de Tarefas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-90 flex flex-col justify-center items-center z-[100]">
+        <div class="loader"></div>
+        <p class="mt-4 text-lg font-semibold text-gray-700">Carregando...</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="fixed top-5 right-5 bg-green-500 text-white py-3 px-5 rounded-lg shadow-lg transform translate-x-full transition-transform duration-500 z-[110]">
+        <p id="toast-message"></p>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="fixed inset-0 flex flex-col items-center justify-center bg-gray-100 z-[80]">
+        <div class="text-center p-8 bg-white rounded-2xl shadow-xl max-w-sm mx-auto">
+            <img src="https://lh3.googleusercontent.com/d/1O2viFrhSQOevKqKgD9VkODtiQ-qpbw4L" alt="Logo República Giramundo" class="w-20 h-24 mx-auto mb-4">
+            <h1 class="text-3xl font-bold text-red-700 mb-2">Painel Giramundo</h1>
+            <p class="text-gray-600 mb-8">Faça login para gerenciar as tarefas da república.</p>
+            <button onclick="signInWithGoogle()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full flex items-center justify-center shadow-md transition duration-300">
+                <i class="fab fa-google mr-3"></i> Entrar com Google
+            </button>
+        </div>
+    </div>
+    
+    <!-- Access Denied Screen -->
+    <div id="access-denied-screen" class="fixed inset-0 flex-col items-center justify-center bg-gray-100 z-[80] hidden">
+        <div class="text-center p-8 bg-white rounded-2xl shadow-xl max-w-sm mx-auto">
+            <i class="fas fa-exclamation-triangle text-5xl text-red-500 mb-4"></i>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Acesso Negado</h2>
+            <p class="text-gray-600 mb-8">Sua conta não está vinculada a um morador. Peça a um administrador para adicionar seu e-mail ao sistema.</p>
+            <button onclick="signOutUser()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-lg w-full">
+                Sair
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App Container (initially hidden) -->
+    <div id="app-container" class="hidden">
+        <!-- Header -->
+        <header class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-40">
+            <div class="flex items-center gap-4">
+                <img src="https://lh3.googleusercontent.com/d/1O2viFrhSQOevKqKgD9VkODtiQ-qpbw4L" alt="Logo República Giramundo" class="giramundo-logo">
+                <h1 class="text-xl md:text-3xl font-bold text-red-700">Painel Giramundo</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <div id="user-info" class="hidden md:flex items-center gap-2 mr-4">
+                    <img id="user-photo" class="w-8 h-8 rounded-full" src="">
+                    <span id="user-name" class="text-sm font-semibold"></span>
+                </div>
+                <div id="admin-buttons" class="hidden items-center gap-2">
+                    <button onclick="openAdminModal()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-full shadow-md transition duration-300" title="Gerenciar Moradores">
+                        <i class="fas fa-users-cog"></i>
+                    </button>
+                </div>
+                <button onclick="openAtaListModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-full shadow-md transition duration-300" title="Reuniões e ATAs">
+                    <i class="fas fa-file-alt"></i>
+                </button>
+                <button onclick="openHallOfFameModal()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold p-3 rounded-full shadow-md transition duration-300" title="Mural da Fama e Histórico">
+                    <i class="fas fa-trophy"></i>
+                </button>
+                <button onclick="openTaskModal()" class="bg-red-600 hover:bg-gray-800 text-white font-bold p-3 rounded-full shadow-md transition duration-300" title="Criar Tarefa">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button onclick="signOutUser()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold p-3 rounded-full shadow-md transition duration-300" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Resident Grid -->
+        <main id="resident-grid" class="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Resident cards will be inserted here by JavaScript -->
+        </main>
+
+        <!-- Floating Action Buttons for Mobile -->
+        <div class="fixed bottom-4 right-4 flex flex-col gap-3 md:hidden">
+            <button id="fab-add-resident" onclick="openResidentModal(null, true)" class="bg-gray-700 hover:bg-gray-800 text-white font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"><i class="fas fa-user-plus text-xl"></i></button>
+            <button onclick="openTaskModal()" class="bg-red-600 hover:bg-red-700 text-white font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"><i class="fas fa-plus text-xl"></i></button>
+        </div>
+    </div>
+    
+    <!-- All Modals are here -->
+    <!-- Task Modal -->
+    <div id="task-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-60 hidden opacity-0 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md transform transition-all scale-95 opacity-0" id="task-modal-content">
+            <h2 id="task-modal-title" class="text-2xl font-bold mb-6">Nova Tarefa</h2>
+            <form id="task-form">
+                <input type="hidden" id="task-id"><input type="hidden" id="task-resident-id-hidden">
+                <div class="mb-4">
+                    <label for="task-name" class="block text-sm font-medium text-gray-700 mb-1">Nome da Tarefa</label>
+                    <input type="text" id="task-name" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Complexidade</label>
+                    <div class="flex justify-around">
+                        <button type="button" data-complexity="Fácil" class="complexity-btn border-2 border-green-500 text-green-500 font-semibold py-2 px-4 rounded-lg w-1/3">Fácil</button>
+                        <button type="button" data-complexity="Média" class="complexity-btn border-2 border-yellow-500 text-yellow-500 font-semibold py-2 px-4 rounded-lg w-1/3 mx-2">Média</button>
+                        <button type="button" data-complexity="Difícil" class="complexity-btn border-2 border-red-500 text-red-500 font-semibold py-2 px-4 rounded-lg w-1/3">Difícil</button>
+                    </div>
+                    <input type="hidden" id="task-complexity" required>
+                </div>
+                <div class="mb-4">
+                    <label for="task-deadline" class="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
+                    <select id="task-deadline" class="w-full p-2 border border-gray-300 rounded-lg">
+                        <option value="Indeterminado">Indeterminado</option>
+                        <option value="1 semana">1 semana</option>
+                        <option value="2 semanas">2 semanas</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="task-resident" class="block text-sm font-medium text-gray-700 mb-1">Atribuir a</label>
+                    <select id="task-resident" class="w-full p-2 border border-gray-300 rounded-lg" required></select>
+                </div>
+                <div class="mb-4">
+                    <label for="task-description" class="block text-sm font-medium text-gray-700 mb-1">Descrição (Opcional)</label>
+                    <textarea id="task-description" rows="3" class="w-full p-2 border border-gray-300 rounded-lg"></textarea>
+                </div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" onclick="closeModal('task-modal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg w-32">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Resident Modal -->
+    <div id="resident-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden opacity-0 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md transform transition-all scale-95 opacity-0" id="resident-modal-content">
+            <h2 id="resident-modal-title" class="text-2xl font-bold mb-6">Novo Morador</h2>
+            <form id="resident-form">
+                <input type="hidden" id="resident-id">
+                <input type="hidden" id="resident-photo-base64">
+                <div class="mb-4">
+                    <label for="resident-name" class="block text-sm font-medium text-gray-700 mb-1">Nome do Morador</label>
+                    <input type="text" id="resident-name" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label for="resident-email" class="block text-sm font-medium text-gray-700 mb-1">Email (para login com Google)</label>
+                    <input type="email" id="resident-email" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label for="resident-photo-file" class="block text-sm font-medium text-gray-700 mb-1">Foto</label>
+                    <input type="file" id="resident-photo-file" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100" accept="image/png, image/jpeg">
+                    <p class="text-xs text-gray-500 mt-1">Deixe em branco para manter a foto atual.</p>
+                </div>
+                <div id="resident-edit-options" class="hidden">
+                    <hr class="my-6">
+                    <button type="button" onclick="handleDeleteResident()" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg"><i class="fas fa-trash-alt mr-2"></i>Remover Morador</button>
+                </div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" onclick="closeModal('resident-modal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg w-32">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-[70] hidden opacity-0 p-4">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm text-center transform transition-all scale-95 opacity-0" id="confirm-modal-content">
+            <h2 id="confirm-title" class="text-xl font-bold mb-4">Confirmar Ação</h2>
+            <p id="confirm-message" class="text-gray-600 mb-6">Você tem certeza?</p>
+            <div class="flex justify-center gap-4">
+                <button id="confirm-cancel" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">Cancelar</button>
+                <button id="confirm-ok" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg">Confirmar</button>
+            </div>
+        </div>
+    </div>
+    <!-- Hall of Fame Modal -->
+    <div id="hall-of-fame-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden opacity-0 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-2xl transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]" id="hall-of-fame-modal-content">
+            <div class="flex-shrink-0 flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-amber-500"><i class="fas fa-trophy mr-2"></i>Mural da Fama & Histórico</h2>
+                <button onclick="closeModal('hall-of-fame-modal')" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div class="flex-grow overflow-y-auto pr-2">
+                 <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-semibold">Ranking do Mês</h3>
+                    <button onclick="handleResetRankAndHistory()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-lg">Resetar Rank</button>
+                </div>
+                <div id="fame-ranking" class="space-y-2 mb-6"></div>
+                
+                <div class="border-t pt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-semibold">Gerenciamento do Vacilômetro</h3>
+                        <button onclick="handleResetAllVacilos()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1 px-3 rounded-lg">Resetar Todos</button>
+                    </div>
+                    <div id="vacilo-management-list" class="space-y-2 mb-6"></div>
+                </div>
+
+                <h3 class="text-lg font-semibold mb-2 border-t pt-4">Histórico de Tarefas Concluídas</h3>
+                <div id="fame-history" class="space-y-2 text-sm text-gray-600"></div>
+            </div>
+        </div>
+    </div>
+    <!-- ATA List Modal -->
+    <div id="ata-list-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden opacity-0 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-2xl transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]" id="ata-list-modal-content">
+            <div class="flex-shrink-0 flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-blue-600"><i class="fas fa-file-alt mr-2"></i>Central de Reuniões</h2>
+                <button onclick="closeModal('ata-list-modal')" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div class="flex-grow overflow-y-auto pr-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">ATAs Anteriores</h3>
+                    <button onclick="openAtaEditor()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"><i class="fas fa-plus mr-2"></i>Nova ATA</button>
+                </div>
+                <div id="ata-history" class="space-y-2 text-sm text-gray-600"></div>
+            </div>
+        </div>
+    </div>
+    <!-- ATA Editor Modal -->
+    <div id="ata-editor-modal" class="modal fixed inset-0 bg-gray-100 z-60 hidden opacity-0 flex flex-col">
+        <div class="bg-gray-100 w-full h-full flex flex-col">
+            <!-- Editor Header -->
+            <div class="flex-shrink-0 flex justify-between items-center p-4 border-b bg-white">
+                <h2 class="text-xl md:text-2xl font-bold text-blue-700">Editor de ATA</h2>
+                <div class="flex items-center gap-2">
+                    <button id="review-ata-btn" onclick="startAtaReview()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-3 rounded-lg text-sm"><i class="fas fa-history mr-1"></i>Revisar</button>
+                    <button onclick="saveAta()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg text-sm">Salvar</button>
+                    <button onclick="closeModal('ata-editor-modal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-3 rounded-lg text-sm">Fechar</button>
+                </div>
+            </div>
+            <!-- Editor Content -->
+            <div class="flex-grow overflow-y-auto p-4">
+                <!-- ATA Metadata -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-white p-4 rounded-lg shadow">
+                    <div>
+                        <label for="ata-date" class="block text-sm font-medium text-gray-700">Data da Reunião</label>
+                        <input type="date" id="ata-date" class="w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label for="ata-scribe" class="block text-sm font-medium text-gray-700">Escrivão(ã)</label>
+                        <select id="ata-scribe" class="w-full p-2 border border-gray-300 rounded-lg"></select>
+                    </div>
+                </div>
+                <!-- ATA Sections -->
+                <div id="ata-sections-container" class="space-y-6"></div>
+            </div>
+        </div>
+    </div>
+    <!-- ATA Review Modal -->
+    <div id="ata-review-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[70] hidden opacity-0 p-4">
+        <div id="ata-review-content" class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg text-center">
+            <h3 id="review-topic-counter" class="text-lg font-semibold mb-4"></h3>
+            <div id="review-topic-card" class="bg-gray-50 p-4 rounded-lg mb-6 min-h-[100px]"></div>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button onclick="handleKeepTopic()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg flex-1"><i class="fas fa-check mr-2"></i>Manter Tópico</button>
+                <button onclick="handleDiscussTopic()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg flex-1"><i class="fas fa-pen-alt mr-2"></i>Discutir e Adicionar</button>
+                <button onclick="handleArchiveTopic()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg flex-1"><i class="fas fa-trash-alt mr-2"></i>Arquivar Tópico</button>
+            </div>
+             <button onclick="closeModal('ata-review-modal')" class="mt-6 text-gray-500 hover:text-gray-800">Fechar Revisão</button>
+        </div>
+    </div>
+    <!-- ATA Topic Modal -->
+    <div id="ata-topic-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[70] hidden opacity-0 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg transform transition-all scale-95 opacity-0" id="ata-topic-modal-content">
+            <h2 id="ata-topic-modal-title" class="text-2xl font-bold mb-6">Novo Tópico</h2>
+            <form id="ata-topic-form">
+                <input type="hidden" id="ata-topic-section">
+                <input type="hidden" id="ata-topic-type">
+                <input type="hidden" id="ata-topic-index">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Tópico</label>
+                    <div class="flex flex-wrap gap-2" id="topic-type-selector">
+                        <button type="button" data-type="discussao" class="topic-type-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg"><i class="fas fa-comments mr-2"></i>Discussão</button>
+                        <button type="button" data-type="tarefa" class="topic-type-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg"><i class="fas fa-tasks mr-2"></i>Tarefa</button>
+                        <button type="button" data-type="decisao" class="topic-type-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg"><i class="fas fa-gavel mr-2"></i>Decisão</button>
+                        <button type="button" data-type="vacilo" class="topic-type-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg"><i class="fas fa-wine-glass-alt mr-2"></i>Vacilômetro</button>
+                    </div>
+                </div>
+                <!-- Dynamic fields based on type -->
+                <div id="topic-fields-container" class="space-y-4"></div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" onclick="closeModal('ata-topic-modal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Tópico</button>
+                </div>
+            </form>
+        </div>
+    </div>
+     <!-- ATA View Modal -->
+    <div id="ata-view-modal" class="modal fixed inset-0 bg-gray-100 z-50 hidden opacity-0 p-0 md:p-4 flex flex-col">
+         <div class="bg-gray-100 w-full h-full flex flex-col">
+            <div class="flex-shrink-0 flex justify-between items-center p-4 border-b bg-white">
+                <h2 id="ata-view-title" class="text-xl md:text-2xl font-bold text-blue-700">Visualizar ATA</h2>
+                <button onclick="closeModal('ata-view-modal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-3 rounded-lg text-sm">Fechar</button>
+            </div>
+            <div id="ata-view-content" class="flex-grow overflow-y-auto p-4"></div>
+        </div>
+    </div>
+    <!-- Vacilo Adjust Modal -->
+    <div id="vacilo-adjust-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60] hidden opacity-0 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-sm transform transition-all scale-95 opacity-0" id="vacilo-adjust-modal-content">
+            <h2 id="vacilo-adjust-title" class="text-2xl font-bold mb-6">Ajustar Pontos</h2>
+            <form id="vacilo-adjust-form">
+                <input type="hidden" id="vacilo-adjust-resident-id">
+                <div class="mb-4">
+                    <label for="vacilo-adjust-points" class="block text-sm font-medium text-gray-700 mb-1">Pontos a Adicionar/Remover</label>
+                    <input type="number" id="vacilo-adjust-points" class="w-full p-2 border border-gray-300 rounded-lg" step="0.5" required placeholder="Ex: -1 para remover 1 ponto">
+                </div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" onclick="closeModal('vacilo-adjust-modal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg">Ajustar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Admin Modal -->
+    <div id="admin-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-60 hidden opacity-0 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-3xl transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]" id="admin-modal-content">
+            <div class="flex-shrink-0 flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-purple-600"><i class="fas fa-users-cog mr-2"></i>Gerenciamento de Moradores</h2>
+                <button onclick="closeModal('admin-modal')" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div class="flex-grow overflow-y-auto pr-2">
+                <div class="flex justify-end mb-4">
+                     <button onclick="openResidentModal(null, true)" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg"><i class="fas fa-user-plus mr-2"></i>Adicionar Morador</button>
+                </div>
+                <div id="admin-resident-list" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase SDK -->
+    <script type="module" src="script.js"></script>
+</body>
+</html>
