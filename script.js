@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, onSnapshot, doc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, getDocs, limit, increment, where, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
@@ -78,6 +78,7 @@ try {
     db = getFirestore(app);
     auth = getAuth(app);
     console.log("Firebase initialized successfully!");
+    handleRedirectResult()
     setupAuthenticationListener();
 } catch (error) {
     console.error("Firebase initialization failed:", error);
@@ -143,6 +144,19 @@ function setupAuthenticationListener() {
         }
         loadingOverlay.classList.add('hidden');
     });
+}
+
+async function handleRedirectResult() {
+    try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+            // Se houver um resultado, o utilizador acabou de fazer login.
+            // A função onAuthStateChanged irá tratar do resto.
+            console.log("Resultado do redirecionamento capturado com sucesso.", result.user);
+        }
+    } catch (error) {
+        console.error("Erro ao obter resultado do redirecionamento:", error);
+    }
 }
 
 // Função para detetar dispositivos Apple (iPhone, iPad, etc.)
