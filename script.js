@@ -78,7 +78,7 @@ try {
     db = getFirestore(app);
     auth = getAuth(app);
     console.log("Firebase initialized successfully!");
-    await handleRedirectResult(auth)
+    await getRedirectResult(auth);
     setupAuthenticationListener();
 } catch (error) {
     console.error("Firebase initialization failed:", error);
@@ -144,19 +144,6 @@ function setupAuthenticationListener() {
         }
         loadingOverlay.classList.add('hidden');
     });
-}
-
-async function handleRedirectResult(auth) {
-    try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-            // Se houver um resultado, o utilizador acabou de fazer login.
-            // A função onAuthStateChanged irá tratar do resto.
-            console.log("Resultado do redirecionamento capturado com sucesso.", result.user);
-        }
-    } catch (error) {
-        console.error("Erro ao obter resultado do redirecionamento:", error);
-    }
 }
 
 // Função para detetar dispositivos Apple (iPhone, iPad, etc.)
