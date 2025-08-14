@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, onSnapshot, doc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, orderBy, getDocs, limit, increment, where, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
@@ -145,16 +145,48 @@ function setupAuthenticationListener() {
     });
 }
 
+// Função para detetar dispositivos Apple (iPhone, iPad, etc.)
+function isAppleDevice() {
+    // Método 1: Verificação padrão e mais compatível para iPhones e iPads mais antigos.
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        return true;
+    }
+
+    // Método 2: O método moderno (User-Agent Client Hints), se o navegador o suportar.
+    // Deteta iPads mais recentes que se podem identificar como "macOS".
+    if (navigator.userAgentData && navigator.userAgentData.platform) {
+        return navigator.userAgentData.platform === "macOS" && navigator.maxTouchPoints > 1;
+    }
+    
+    // Método 3 (Plano B): O método em descontinuação como última tentativa para
+    // navegadores mais antigos que não suportam o método 2.
+    return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+
 window.signInWithGoogle = async function() {
     const provider = new GoogleAuthProvider();
-    try {
-        await signInWithPopup(auth, provider);
-    } catch (error) {
-        console.error("Erro no login com Google:", error);
-        if (error.code === 'auth/configuration-not-found') {
-            showToast('Erro: O login com Google não foi ativado no painel do Firebase.', true);
-        } else if (error.code === 'auth/unauthorized-domain') {
-            showToast(`Erro: Domínio não autorizado. Adicione "${window.location.hostname}" no Firebase.`, true);
+
+    if (isAppleDevice()) {
+        // Para iPhone, iPad, e Safari, usar redirecionamento (mais compatível)
+        console.log("Dispositivo Apple detetado, a usar signInWithRedirect.");
+        try {
+            await signInWithRedirect(auth, provider);
+        } catch (error) {
+            console.error("Erro ao iniciar o redirecionamento de login:", error);
+            showToast("Não foi possível iniciar o login.", true);
+        }
+    } else {
+        // Para Chrome, Edge, etc., usar pop-up (melhor experiência no desktop)
+        console.log("Dispositivo não-Apple detetado, a usar signInWithPopup.");
+        try {
+            await signInWithPopup(auth, provider);
+        } catch (error) {
+            console.error("Erro no login com Google:", error);
+            if (error.code === 'auth/popup-closed-by-user') {
+                showToast("Login cancelado pelo utilizador.");
+            } else {
+                showToast("Ocorreu um erro durante o login.", true);
+            }
         }
     }
 }
