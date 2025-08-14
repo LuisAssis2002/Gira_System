@@ -79,12 +79,7 @@ try {
     auth = getAuth(app);
     console.log("Firebase initialized successfully!");
     setupAuthenticationListener();
-    // Process any redirect results. This will trigger the listener above if successful.
-    getRedirectResult(auth).catch((error) => {
-        console.error("Redirect Result Error:", error);
-        // Even on error, the onAuthStateChanged will likely have a null user,
-        // which will correctly show the login screen.
-    });
+    
 } catch (error) {
     console.error("Firebase initialization failed:", error);
     document.getElementById('loading-overlay').innerHTML = `<div class="text-center text-red-600 font-semibold p-4"><p>Falha na inicialização do Firebase.</p></div>`;
@@ -177,6 +172,11 @@ window.signInWithGoogle = async function() {
         console.log("Dispositivo Apple detetado, a usar signInWithRedirect.");
         try {
             await signInWithRedirect(auth, provider);
+            await getRedirectResult(auth).catch((error) => {
+                console.error("Redirect Result Error:", error);
+                // Even on error, the onAuthStateChanged will likely have a null user,
+                // which will correctly show the login screen.
+            });
         } catch (error) {
             console.error("Erro ao iniciar o redirecionamento de login:", error);
             showToast("Não foi possível iniciar o login.", true);
