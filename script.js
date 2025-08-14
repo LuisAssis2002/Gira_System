@@ -78,7 +78,7 @@ try {
     db = getFirestore(app);
     auth = getAuth(app);
     console.log("Firebase initialized successfully!");
-    handleRedirectResult()
+    await handleRedirectResult(auth)
     setupAuthenticationListener();
 } catch (error) {
     console.error("Firebase initialization failed:", error);
@@ -146,7 +146,7 @@ function setupAuthenticationListener() {
     });
 }
 
-async function handleRedirectResult() {
+async function handleRedirectResult(auth) {
     try {
         const result = await getRedirectResult(auth);
         if (result) {
