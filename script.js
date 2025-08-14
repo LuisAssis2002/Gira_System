@@ -4,14 +4,7 @@ import { getFirestore, collection, onSnapshot, doc, addDoc, setDoc, updateDoc, d
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // --- FIREBASE CONFIGURATION ---
-const firebaseConfig = {
-    apiKey: "AIzaSyCaKNsfEK9nbyxSS2nCyj2T61DJ34qEjQo",
-    authDomain: "sistema-de-tarefas-giramundo.firebaseapp.com",
-    projectId: "sistema-de-tarefas-giramundo",
-    storageBucket: "sistema-de-tarefas-giramundo.appspot.com",
-    messagingSenderId: "429762801810",
-    appId: "1:429762801810:web:f889305d35d1d4bfbcf64b"
-};
+import { firebaseConfig } from "./firebase-config.js";
 
 // --- AÇÃO NECESSÁRIA: Ativar Login com Google ---
 // 1. Vá para o seu projeto no console do Firebase (https://console.firebase.google.com/).
