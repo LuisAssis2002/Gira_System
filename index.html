@@ -228,10 +228,10 @@
         <div class="bg-gray-100 w-full h-full flex flex-col">
             <!-- Editor Header -->
             <div class="flex-shrink-0 flex justify-between items-center p-4 border-b bg-white">
-                <h2 class="text-xl md:text-2xl font-bold text-blue-700">Editor de ATA</h2>
+                <h2 id="ata-editor-title" class="text-xl md:text-2xl font-bold text-blue-700">Editor de ATA</h2>
                 <div class="flex items-center gap-2">
                     <button id="review-ata-btn" onclick="startAtaReview()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-3 rounded-lg text-sm"><i class="fas fa-history mr-1"></i>Revisar</button>
-                    <button onclick="saveAta()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg text-sm">Salvar</button>
+                    <button id="save-ata-btn" onclick="saveAta()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg text-sm">Salvar</button>
                     <button onclick="closeModal('ata-editor-modal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-3 rounded-lg text-sm">Fechar</button>
                 </div>
             </div>
@@ -263,7 +263,7 @@
                 <button onclick="handleDiscussTopic()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg flex-1"><i class="fas fa-pen-alt mr-2"></i>Discutir e Adicionar</button>
                 <button onclick="handleArchiveTopic()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg flex-1"><i class="fas fa-trash-alt mr-2"></i>Arquivar Tópico</button>
             </div>
-             <button onclick="closeModal('ata-review-modal')" class="mt-6 text-gray-500 hover:text-gray-800">Fechar Revisão</button>
+             <button onclick="handleDiscussTopic()" class="mt-6 text-gray-500 hover:text-gray-800">Fechar Revisão</button>
         </div>
     </div>
     <!-- ATA Topic Modal -->

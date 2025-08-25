@@ -5,13 +5,14 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signI
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-    apiKey: "AIzaSyCaKNsfEK9nbyxSS2nCyj2T61DJ34qEjQo",
-    authDomain: "sistema-de-tarefas-giramundo.firebaseapp.com",
-    projectId: "sistema-de-tarefas-giramundo",
-    storageBucket: "sistema-de-tarefas-giramundo.appspot.com",
-    messagingSenderId: "429762801810",
-    appId: "1:429762801810:web:f889305d35d1d4bfbcf64b"
+  apiKey: "AIzaSyDLZEJ1noBqVmhXzHkre6GGAbCyplXcmJU",
+  authDomain: "sistema-de-tarefas-giram-7df95.firebaseapp.com",
+  projectId: "sistema-de-tarefas-giram-7df95",
+  storageBucket: "sistema-de-tarefas-giram-7df95.firebasestorage.app",
+  messagingSenderId: "123350899829",
+  appId: "1:123350899829:web:ab498924d679063abc6c3c",
 };
+
 
 // --- AÇÃO NECESSÁRIA: Ativar Login com Google ---
 // 1. Vá para o seu projeto no console do Firebase (https://console.firebase.google.com/).
@@ -463,6 +464,7 @@ function renderAtaHistory() {
             </div>
             <button onclick="handleExportAta('${ata.id}')" class="text-gray-500 hover:text-gray-700 ml-4 p-2" title="Exportar ATA"><i class="fas fa-download"></i></button>
             <button onclick="handleDeleteAta('${ata.id}')" class="text-red-500 hover:text-red-700 ml-2 p-2" title="Deletar ATA"><i class="fas fa-trash-alt"></i></button>
+            <button onclick="openAtaForEditing('${ata.id}')" class="text-blue-500 hover:text-red-700 ml-2 p-2"><i class="fas fa-pencil-alt"></i></button>
         </div>
     `).join('') : '<p class="text-gray-500 italic">Nenhuma ATA encontrada.</p>';
 }
@@ -802,6 +804,121 @@ window.openAtaEditor = async function openAtaEditor(ataId = null) {
     openModal('ata-editor-modal');
 }
 
+// Nova variável para guardar o ID da ata em edição
+let currentAtaId = null;
+
+/**
+ * Abre o editor de atas para uma ATA JÁ EXISTENTE.
+ */
+window.openAtaForEditing = async function(ataId) {
+    currentAtaId = ataId;
+
+    // 1. Muda o título e o comportamento do botão Salvar
+    document.getElementById('ata-editor-title').textContent = 'Editar ATA';
+    document.getElementById('save-ata-btn').setAttribute('onclick', 'updateAta()');
+
+    // 2. Busca os dados da ata no Firestore
+    const ataRef = doc(db, "republicas", republicaId, "atas", ataId);
+    const ataSnap = await getDoc(ataRef);
+
+    if (!ataSnap.exists()) {
+        showToast("Erro: ATA não encontrada.", true);
+        return;
+    }
+    
+    currentAta = ataSnap.data();
+    // Garante que a data está no formato YYYY-MM-DD para o input
+    if (currentAta.date && currentAta.date.seconds) {
+        currentAta.date = new Date(currentAta.date.seconds * 1000).toISOString().split('T')[0];
+    }
+
+    // 3. Preenche o formulário com os dados existentes
+    document.getElementById('ata-date').value = currentAta.date;
+    document.getElementById('ata-scribe').value = currentAta.scribeId || '';
+    
+    // Esconde o botão de revisar ata anterior, pois não faz sentido na edição
+    document.getElementById('review-ata-btn').style.display = 'none';
+
+    // 4. Renderiza o editor e abre o modal
+    renderAtaEditor();
+    document.querySelector('#app-container header').style.display = 'none';
+    closeModal('ata-list-modal');
+    openModal('ata-editor-modal');
+}
+
+/**
+ * Salva as ALTERAÇÕES de uma ata existente.
+ */
+window.updateAta = async function() {
+    // A lógica é muito parecida com a de saveAta, mas usa o currentAtaId
+    // para ATUALIZAR o documento em vez de criar um novo.
+    currentAta.date = document.getElementById('ata-date').value;
+    const scribeSelect = document.getElementById('ata-scribe');
+    currentAta.scribeId = scribeSelect.value;
+    currentAta.scribeName = scribeSelect.options[scribeSelect.selectedIndex].text;
+
+    if (!currentAta.date || !currentAta.scribeId) {
+        showToast("Por favor, preencha a data e o escrivão da ATA.", true);
+        return;
+    }
+    
+    try {
+        const batch = writeBatch(db);
+        const finalTopicsForAta = [...currentAta.topics];
+        
+        // A lógica de processar tarefas e vacilos é mantida
+        finalTopicsForAta.forEach((topic, index) => {
+            if (topic.type === 'tarefa') {
+                const taskData = { name: topic.description, complexity: topic.complexity, deadline: topic.deadline, description: `Criada via ATA de ${new Date(currentAta.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}` };
+                if (topic.generatedTaskId) {
+                    const taskRef = doc(db, "republicas", republicaId, "moradores", topic.responsibleId, "tarefas", topic.generatedTaskId);
+                    batch.update(taskRef, taskData);
+                } else {
+                    const newTaskRef = doc(collection(db, "republicas", republicaId, "moradores", topic.responsibleId, "tarefas"));
+                    taskData.createdAt = serverTimestamp();
+                    batch.set(newTaskRef, taskData);
+                    finalTopicsForAta[index].generatedTaskId = newTaskRef.id;
+                }
+            } else if (topic.type === 'vacilo') {
+                const residentRef = doc(db, "republicas", republicaId, "moradores", topic.residentId);
+                batch.update(residentRef, { vaciloPoints: increment(topic.points) });
+            }
+        });
+
+        const ataData = {
+            ...currentAta,
+            topics: finalTopicsForAta,
+            updatedAt: serverTimestamp()
+        };
+
+        const ataRef = doc(db, "republicas", republicaId, "atas", currentAtaId);
+        batch.set(ataRef, ataData, { merge: true }); // set com merge atualiza o documento
+
+        await batch.commit();
+
+        showToast("ATA atualizada com sucesso!");
+        closeModal('ata-editor-modal');
+        document.querySelector('#app-container header').style.display = 'flex';
+        // TODO: Chamar a função que atualiza a lista de atas na UI.
+
+    } catch(error) {
+        console.error("Erro ao atualizar ATA:", error);
+        showToast("Não foi possível atualizar a ATA.", true);
+    }
+}
+
+/**
+ * Remove um tópico da ata que está sendo editada/criada.
+ */
+window.deleteAtaTopic = function(topicIndex) {
+    showConfirm('Tem certeza de que deseja excluir este tópico?', async () => {
+        const section = currentAta.topics[topicIndex].section;
+        currentAta.topics.splice(topicIndex, 1);
+        renderAtaTopics(section);
+        showToast("Tópico excluído.");
+    });
+}
+
 function renderAtaEditor() {
     const container = document.getElementById('ata-sections-container');
     container.innerHTML = '';
@@ -830,7 +947,14 @@ function renderAtaTopics(sectionName) {
     if (!container) return;
     
     const sectionTopics = currentAta.topics.filter(t => t.section === sectionName);
+    
     container.innerHTML = sectionTopics.length > 0 ? sectionTopics.map(topic => {
+        // --- 1. ADIÇÃO CRÍTICA QUE FALTAVA ---
+        // Encontra o índice real do tópico no array `currentAta.topics` para que os
+        // botões de editar e excluir saibam qual item modificar/remover.
+        const originalIndex = currentAta.topics.findIndex(t => t === topic);
+
+        // Seu código original para montar o conteúdo do tópico (está perfeito)
         let contentHTML = '';
         const iconMap = { 'discussao': 'fa-comments', 'tarefa': 'fa-tasks', 'decisao': 'fa-gavel', 'vacilo': 'fa-wine-glass-alt' };
         const colorMap = { 'discussao': 'bg-white', 'tarefa': 'bg-blue-50', 'decisao': 'bg-green-50', 'vacilo': 'bg-purple-50' };
@@ -846,10 +970,18 @@ function renderAtaTopics(sectionName) {
                 contentHTML = `<p>${topic.content}</p>`;
         }
 
-        return `<div class="p-3 rounded-lg shadow-sm ${colorMap[topic.type]} flex items-start">
-            <i class="fas ${iconMap[topic.type]} mr-3 mt-1 text-gray-500"></i>
-            <div>${contentHTML}</div>
-        </div>`;
+        // --- 2. O NOVO RETURN COM OS BOTÕES ---
+        // Este return agora funcionará, pois a variável `originalIndex` existe.
+        return `<div class="p-3 rounded-lg shadow-sm ${colorMap[topic.type]} flex items-start justify-between">
+                    <div class="flex items-start">
+                        <i class="fas ${iconMap[topic.type]} mr-3 mt-1 text-gray-500"></i>
+                        <div>${contentHTML}</div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0 ml-4">
+                        <button onclick="openAtaTopicModal('${sectionName}', ${originalIndex})" class="text-blue-500 hover:text-blue-700" title="Editar Tópico"><i class="fas fa-pencil-alt"></i></button>
+                        <button onclick="deleteAtaTopic(${originalIndex})" class="text-red-500 hover:text-red-700" title="Excluir Tópico"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </div>`;
     }).join('') : '<p class="text-sm italic text-gray-500">Nenhum tópico adicionado.</p>';
 }
 
@@ -1000,7 +1132,10 @@ window.startAtaReview = function startAtaReview() {
         showToast("Nenhuma ATA anterior com tópicos para revisar.");
         return;
     }
-    reviewTopicIndex = 0;
+    const reviewBtn = document.getElementById('review-ata-btn');
+    if (reviewBtn.textContent != 'Continuar Revisão') {
+        reviewTopicIndex = 0;
+    }
     displayCurrentReviewTopic();
     openModal('ata-review-modal');
 }
@@ -1120,6 +1255,10 @@ window.saveAta = async function saveAta() {
         });
         
         await batch.commit();
+        const reviewBtn = document.getElementById('review-ata-btn');
+        reviewBtn.textContent = 'Revisar ATA Anterior';
+        reviewBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+        reviewBtn.classList.remove('bg-teal-500', 'hover:bg-teal-600');
 
         showToast("ATA salva com sucesso!");
         closeModal('ata-editor-modal');
