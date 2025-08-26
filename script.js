@@ -11,6 +11,7 @@ const firebaseConfig = {
   storageBucket: "sistema-de-tarefas-giram-7df95.firebasestorage.app",
   messagingSenderId: "123350899829",
   appId: "1:123350899829:web:ab498924d679063abc6c3c",
+  measurementId: "G-HP2ELBQG1K"
 };
 
 
@@ -867,23 +868,46 @@ window.updateAta = async function() {
         const finalTopicsForAta = [...currentAta.topics];
         
         // A lógica de processar tarefas e vacilos é mantida
-        finalTopicsForAta.forEach((topic, index) => {
+        for (let i = 0; i < finalTopicsForAta.length; i++) {
+            const topic = finalTopicsForAta[i];
+
             if (topic.type === 'tarefa') {
-                const taskData = { name: topic.description, complexity: topic.complexity, deadline: topic.deadline, description: `Criada via ATA de ${new Date(currentAta.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}` };
+                const taskData = {
+                    name: topic.description,
+                    complexity: topic.complexity,
+                    deadline: topic.deadline,
+                    description: `Criada via ATA de ${new Date(currentAta.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`,
+                };
+
                 if (topic.generatedTaskId) {
+                    // --- MUDANÇA: Lógica de verificação antes de atualizar ---
+                    // 1. Monta a referência para a tarefa pendente
                     const taskRef = doc(db, "republicas", republicaId, "moradores", topic.responsibleId, "tarefas", topic.generatedTaskId);
-                    batch.update(taskRef, taskData);
+                    
+                    // 2. Tenta buscar o documento da tarefa
+                    const taskSnap = await getDoc(taskRef);
+
+                    // 3. Se o documento existir (ainda está pendente), adiciona a atualização ao batch.
+                    if (taskSnap.exists()) {
+                        batch.update(taskRef, taskData);
+                    } else {
+                        // Se não existir, a tarefa já foi concluída.
+                        // O sistema não faz nada, apenas mantém o tópico na ata como registro.
+                        console.log(`Tarefa ${topic.generatedTaskId} não encontrada. Provavelmente foi concluída. Nenhuma ação no batch.`);
+                    }
                 } else {
+                    // Lógica original para criar uma nova tarefa (permanece a mesma)
                     const newTaskRef = doc(collection(db, "republicas", republicaId, "moradores", topic.responsibleId, "tarefas"));
                     taskData.createdAt = serverTimestamp();
                     batch.set(newTaskRef, taskData);
-                    finalTopicsForAta[index].generatedTaskId = newTaskRef.id;
+                    // Atualiza o ID da tarefa no array que será salvo na ata
+                    finalTopicsForAta[i].generatedTaskId = newTaskRef.id;
                 }
             } else if (topic.type === 'vacilo') {
                 const residentRef = doc(db, "republicas", republicaId, "moradores", topic.residentId);
                 batch.update(residentRef, { vaciloPoints: increment(topic.points) });
             }
-        });
+        }
 
         const ataData = {
             ...currentAta,
@@ -1212,13 +1236,15 @@ window.saveAta = async function saveAta() {
         showToast("Por favor, preencha a data e o escrivão da ATA.", true);
         return;
     }
-    
-    try {
-        const batch = writeBatch(db);
-        const finalTopicsForAta = [...currentAta.topics];
 
-        // Process all topics within the batch
-        finalTopicsForAta.forEach((topic, index) => {
+    try {
+        const finalTopicsForAta = [...currentAta.topics];
+        const batch = writeBatch(db);
+
+        // --- MUDANÇA: Substituído forEach por um loop for...of para usar await ---
+        for (let i = 0; i < finalTopicsForAta.length; i++) {
+            const topic = finalTopicsForAta[i];
+
             if (topic.type === 'tarefa') {
                 const taskData = {
                     name: topic.description,
@@ -1228,33 +1254,48 @@ window.saveAta = async function saveAta() {
                 };
 
                 if (topic.generatedTaskId) {
-                    // This is an EXISTING task, so UPDATE it.
+                    // --- MUDANÇA: Lógica de verificação antes de atualizar ---
+                    // 1. Monta a referência para a tarefa pendente
                     const taskRef = doc(db, "republicas", republicaId, "moradores", topic.responsibleId, "tarefas", topic.generatedTaskId);
-                    batch.update(taskRef, taskData);
+                    
+                    // 2. Tenta buscar o documento da tarefa
+                    const taskSnap = await getDoc(taskRef);
+
+                    // 3. Se o documento existir (ainda está pendente), adiciona a atualização ao batch.
+                    if (taskSnap.exists()) {
+                        batch.update(taskRef, taskData);
+                    } else {
+                        // Se não existir, a tarefa já foi concluída.
+                        // O sistema não faz nada, apenas mantém o tópico na ata como registro.
+                        console.log(`Tarefa ${topic.generatedTaskId} não encontrada. Provavelmente foi concluída. Nenhuma ação no batch.`);
+                    }
                 } else {
-                    // This is a NEW task, so CREATE it and get its ID for the ATA.
+                    // Lógica original para criar uma nova tarefa (permanece a mesma)
                     const newTaskRef = doc(collection(db, "republicas", republicaId, "moradores", topic.responsibleId, "tarefas"));
                     taskData.createdAt = serverTimestamp();
                     batch.set(newTaskRef, taskData);
-                    finalTopicsForAta[index].generatedTaskId = newTaskRef.id;
+                    // Atualiza o ID da tarefa no array que será salvo na ata
+                    finalTopicsForAta[i].generatedTaskId = newTaskRef.id;
                 }
             } else if (topic.type === 'vacilo') {
                 const residentRef = doc(db, "republicas", republicaId, "moradores", topic.residentId);
                 batch.update(residentRef, { vaciloPoints: increment(topic.points) });
             }
-        });
+        }
 
-        // Now, add the ATA document itself to the batch, using the final topics array
+        // Adiciona a ata em si ao batch, com a lista de tópicos potencialmente atualizada
         const ataCol = collection(db, "republicas", republicaId, "atas");
         batch.set(doc(ataCol), {
             date: currentAta.date,
             scribeId: currentAta.scribeId,
             scribeName: currentAta.scribeName,
-            topics: finalTopicsForAta, // Use the array that has the new task IDs
+            topics: finalTopicsForAta,
             createdAt: serverTimestamp()
         });
         
+        // Executa todas as operações de uma vez
         await batch.commit();
+
         const reviewBtn = document.getElementById('review-ata-btn');
         reviewBtn.textContent = 'Revisar ATA Anterior';
         reviewBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
